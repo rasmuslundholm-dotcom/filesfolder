@@ -15,6 +15,10 @@ global:
     configMapName: "intric-ca-bundle"
     key: "ca-bundle.crt"
 
+# ghcr pull secret (inoolabs backend/frontend images are private) — created on-server from the packages PAT.
+intricImagePullCredentials:
+  existingSecret: "ghcr-pull"
+
 intricApp:
   auth:
     # URL_SIGNING_KEY + INTRIC_SUPER_API_KEY carried from old .env; MICROSERVICE_JWT_SECRET generated.
