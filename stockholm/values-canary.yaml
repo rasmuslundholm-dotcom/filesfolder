@@ -1,0 +1,72 @@
+# intric-helm 5.10.3 values — Stockholm CANARY: trafikkontoret
+# Source: /mnt/old-home/ecogpt/intric/trafikkontoret/ (see source/trafikkontoret-env-reference.md)
+# Strategy: chart default backend version; restore old DB; backend migrates schema forward on boot.
+# Prereqs created on-server first: namespace, configmap intric-ca-bundle,
+#   secrets trafikkontoret-env / trafikkontoret-intric-app / trafikkontoret-zitadel.
+# Install: helm install trafikkontoret oci://ghcr.io/inoolabs/charts/intric-helm --version 5.10.3 \
+#            -n trafikkontoret -f values-canary.yaml
+
+global:
+  proxy:
+    httpProxy: "http://proxy-sta.adstockholm.se:8080"
+    httpsProxy: "http://proxy-sta.adstockholm.se:8080"
+    noProxy: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.cluster.local,.adstockholm.se,.stockholm.se,.umnfi.net"
+  caBundle:
+    configMapName: "intric-ca-bundle"
+    key: "ca-bundle.crt"
+
+intricApp:
+  auth:
+    # URL_SIGNING_KEY + INTRIC_SUPER_API_KEY carried from old .env; MICROSERVICE_JWT_SECRET generated.
+    existingSecret: "trafikkontoret-intric-app"
+
+intricBackendApiServer:
+  logLevel: INFO
+  cors:
+    allowAll: true
+  # Whole old .env (quote-stripped) — app-level vars. Chart's explicit env overrides infra vars.
+  extraEnvVarsSecret: "trafikkontoret-env"
+  extraEnv:
+    - name: S3_BUCKET_NAME
+      value: "trafikkontoret"
+
+postgresql:
+  enabled: true
+  auth:
+    username: "postgres"
+    database: "postgres"   # matches source DB name for a 1:1 restore
+  persistence:
+    size: 20Gi
+
+s3:
+  enabled: true
+  persistence:
+    size: 20Gi
+
+redis:
+  enabled: true
+
+weaviate:
+  enabled: false
+
+zitadel:
+  enabled: false
+  external:
+    instanceUrl: "https://login.intric.ai"
+    projectClientId: "284441183348916228"
+    projectId: "284441112414781444"
+    auth:
+      existingSecret: "trafikkontoret-zitadel"   # key: access-token (real machine PAT)
+zitadelBootstrap:
+  enabled: false
+
+# No at-rest encryption keys in the source version.
+encryptionKeys:
+  existingSecret: ""
+
+ingress:
+  enabled: true
+  className: traefik
+  frontendHost: "tkgpt.stockholm.se"
+  backendHost: "tkgpt-api.stockholm.se"
+  zitadelHost: "zitadel-unused.tkgpt.stockholm.se"   # unused (external Zitadel); key required by schema
