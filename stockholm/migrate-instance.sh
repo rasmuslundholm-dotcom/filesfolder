@@ -313,7 +313,13 @@ spec:
           mc alias set src http://source-rustfs:9000 "\$SRC_AK" "\$SRC_SK"
           mc alias set dst http://${REL}-s3:9000 "\$DST_AK" "\$DST_SK"
           echo "SOURCE objects: \$(mc ls --recursive src/${S3_BUCKET} | wc -l)"
-          mc mirror --overwrite src/${S3_BUCKET} dst/${S3_BUCKET}
+          ok=0
+          for attempt in 1 2 3; do
+            echo "mirror attempt \$attempt"
+            if mc mirror --overwrite src/${S3_BUCKET} dst/${S3_BUCKET}; then ok=1; break; fi
+            echo "attempt \$attempt hit an error (often a transient multipart glitch); retrying in 5s"; sleep 5
+          done
+          [ "\$ok" = 1 ] || { echo "MIRROR FAILED after 3 attempts"; exit 1; }
           echo "TARGET objects: \$(mc ls --recursive dst/${S3_BUCKET} | wc -l)"
           echo MIRROR_DONE
 YAML
