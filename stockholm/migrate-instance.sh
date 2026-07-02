@@ -152,7 +152,8 @@ EOF
   kc rollout status deploy/${REL}-intric-backend-api-server --timeout=300s
   kc rollout status deploy/${REL}-intric-backend-worker --timeout=300s
   kc rollout status deploy/${REL}-intric-frontend-app --timeout=300s
-  local notready; notready="$(kc get pods --no-headers | grep -vE 'Running|Completed' || true)"
+  # Ignore Terminating (old pods being cleaned up after a rollout restart) and Completed (jobs).
+  local notready; notready="$(kc get pods --no-headers | grep -vE 'Running|Completed|Terminating' || true)"
   [ -z "$notready" ] || die "install gate: pods not healthy:\n$notready"
   log "INSTALL GATE OK: all components Ready"
 }
