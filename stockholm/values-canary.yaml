@@ -61,6 +61,14 @@ s3:
   enabled: true
   persistence:
     size: 20Gi
+  # RustFS default 2Gi OOMs mid-mirror on large buckets — bump it.
+  resources:
+    requests:
+      cpu: 200m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 8Gi
 
 redis:
   enabled: true

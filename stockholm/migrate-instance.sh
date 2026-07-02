@@ -126,7 +126,8 @@ intricFrontendApp:
     # USE_CUSTOM_LOGIN=false routes to the OIDC-redirect/Zitadel-hosted-UI flow, which handles SAML.
     - { name: USE_CUSTOM_LOGIN, value: "false" }
 postgresql: { enabled: true, auth: { username: "postgres", database: "postgres" }, persistence: { size: 20Gi } }
-s3: { enabled: true, persistence: { size: 20Gi } }
+# RustFS memory bumped from the chart default 2Gi — it OOMs mid-mirror on large buckets (7GB+ → OOMKilled).
+s3: { enabled: true, persistence: { size: 20Gi }, resources: { requests: { cpu: 200m, memory: 1Gi }, limits: { cpu: "2", memory: 8Gi } } }
 redis: { enabled: true }
 weaviate: { enabled: false }
 zitadel:
