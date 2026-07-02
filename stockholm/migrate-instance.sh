@@ -145,8 +145,16 @@ EOF
   helm status "$REL" -n "$NS" >/dev/null 2>&1 \
     && { log "release exists; upgrading"; helm upgrade "$REL" "$CHART_TGZ" -n "$NS" -f "$vals"; } \
     || helm install "$REL" "$CHART_TGZ" -n "$NS" -f "$vals"
-  log "waiting for postgres/redis/s3 to be Ready..."
+  log "waiting for stateful + app components to be Ready..."
   kc rollout status statefulset/${REL}-postgresql --timeout=300s
+  kc rollout status statefulset/${REL}-redis --timeout=300s
+  kc rollout status statefulset/${REL}-s3 --timeout=300s
+  kc rollout status deploy/${REL}-intric-backend-api-server --timeout=300s
+  kc rollout status deploy/${REL}-intric-backend-worker --timeout=300s
+  kc rollout status deploy/${REL}-intric-frontend-app --timeout=300s
+  local notready; notready="$(kc get pods --no-headers | grep -vE 'Running|Completed' || true)"
+  [ -z "$notready" ] || die "install gate: pods not healthy:\n$notready"
+  log "INSTALL GATE OK: all components Ready"
 }
 
 # --- Postgres: dump source (offline copy) + restore into chart PG ------------
@@ -226,6 +234,19 @@ YAML
   kc rollout status deploy/${REL}-intric-backend-api-server --timeout=600s
   kc scale deploy ${REL}-intric-backend-worker --replicas=1
   kc rollout status deploy/${REL}-intric-backend-worker --timeout=300s
+
+  # INTEGRITY GATE: compare migrated target vs the still-running source-pg (original data).
+  # info_blobs (knowledge) must match exactly; files must be >= source (backend may add 1 default file).
+  log "DB integrity gate: source-pg vs target row counts"
+  local src_f src_ib tgt_f tgt_ib
+  src_f="$(kc exec source-pg -- psql -U postgres -d postgres -tAc 'select count(*) from files' | tr -dc 0-9)"
+  src_ib="$(kc exec source-pg -- psql -U postgres -d postgres -tAc 'select count(*) from info_blobs' | tr -dc 0-9)"
+  tgt_f="$(kc exec ${REL}-postgresql-0 -- psql -U postgres -d postgres -tAc 'select count(*) from files' | tr -dc 0-9)"
+  tgt_ib="$(kc exec ${REL}-postgresql-0 -- psql -U postgres -d postgres -tAc 'select count(*) from info_blobs' | tr -dc 0-9)"
+  log "  files: source=$src_f target=$tgt_f | info_blobs: source=$src_ib target=$tgt_ib"
+  [ -n "$src_ib" ] && [ "$src_ib" = "$tgt_ib" ] || die "info_blobs mismatch (source=$src_ib target=$tgt_ib) — STOP, investigate"
+  [ -n "$src_f" ] && [ "${tgt_f:-0}" -ge "$src_f" ] 2>/dev/null || die "files regressed (source=$src_f target=$tgt_f) — STOP, investigate"
+  log "DB INTEGRITY GATE OK (info_blobs match; files >= source)"
   log "DB migration complete"
 }
 
@@ -295,7 +316,14 @@ YAML
   kc wait --for=condition=Ready pod/mc-mirror --timeout=60s 2>/dev/null || true
   kc logs -f mc-mirror || true
   kc get pod mc-mirror -o jsonpath='{.status.phase}' | grep -q Succeeded || die "mc-mirror did not succeed"
-  log "S3 mirror complete — compare SOURCE vs TARGET object counts above (must match)"
+
+  # INTEGRITY GATE: source and target object counts (parsed from the mirror pod's own output) must match.
+  local srcn tgtn
+  srcn="$(kc logs mc-mirror | awk -F': ' '/^SOURCE objects:/{print $2}' | tr -dc 0-9)"
+  tgtn="$(kc logs mc-mirror | awk -F': ' '/^TARGET objects:/{print $2}' | tr -dc 0-9)"
+  log "S3 integrity gate: source=$srcn target=$tgtn"
+  [ -n "$srcn" ] && [ "$srcn" = "$tgtn" ] || die "S3 object count mismatch (source=$srcn target=$tgtn) — STOP, investigate"
+  log "S3 INTEGRITY GATE OK ($tgtn objects mirrored)"
 }
 
 # --- verify ------------------------------------------------------------------
