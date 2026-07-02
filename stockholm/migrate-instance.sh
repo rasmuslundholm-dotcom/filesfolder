@@ -122,6 +122,9 @@ intricFrontendApp:
   extraEnv:
     - { name: NODE_USE_ENV_PROXY, value: "1" }
     - { name: ORIGIN, value: "https://${FRONTEND_HOST}" }
+    # Stockholm IdPs are SAML. The custom v2 login (idp_intents) is OIDC-authUrl-only and breaks on SAML;
+    # USE_CUSTOM_LOGIN=false routes to the OIDC-redirect/Zitadel-hosted-UI flow, which handles SAML.
+    - { name: USE_CUSTOM_LOGIN, value: "false" }
 postgresql: { enabled: true, auth: { username: "postgres", database: "postgres" }, persistence: { size: 20Gi } }
 s3: { enabled: true, persistence: { size: 20Gi } }
 redis: { enabled: true }

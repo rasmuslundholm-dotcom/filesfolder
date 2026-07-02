@@ -45,6 +45,9 @@ intricFrontendApp:
       value: "1"
     - name: ORIGIN
       value: "https://tkgpt.stockholm.se"
+    # SAML IdP: custom v2 login is OIDC-only and breaks on SAML; false = OIDC-redirect/hosted-UI (SAML works).
+    - name: USE_CUSTOM_LOGIN
+      value: "false"
 
 postgresql:
   enabled: true
