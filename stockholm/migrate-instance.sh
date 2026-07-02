@@ -196,6 +196,7 @@ YAML
 
   log "restoring into ${REL}-postgresql (DROP schema public, then pg_restore)"
   confirm "  proceed with restore (destroys the empty target schema)?"
+  kc delete pod pg-restore --ignore-not-found
   kc apply -f - <<YAML
 apiVersion: v1
 kind: Pod
@@ -228,7 +229,9 @@ YAML
   kc wait --for=condition=Ready pod/pg-restore --timeout=60s 2>/dev/null || true
   log "restore running; following logs to RESTORE_DONE..."
   kc logs -f pg-restore || true
-  kc get pod pg-restore -o jsonpath='{.status.phase}' | grep -q Succeeded || die "pg-restore did not succeed — inspect: kubectl -n $NS logs pg-restore"
+  # Wait for the pod's terminal phase (avoids racing the Running->Succeeded status update).
+  kc wait --for=jsonpath='{.status.phase}'=Succeeded pod/pg-restore --timeout=120s \
+    || die "pg-restore did not reach Succeeded — inspect: kubectl -n $NS logs pg-restore"
 
   log "scaling backend up -> Alembic migrates forward to chart version"
   kc scale deploy ${REL}-intric-backend-api-server --replicas=1
@@ -316,7 +319,8 @@ spec:
 YAML
   kc wait --for=condition=Ready pod/mc-mirror --timeout=60s 2>/dev/null || true
   kc logs -f mc-mirror || true
-  kc get pod mc-mirror -o jsonpath='{.status.phase}' | grep -q Succeeded || die "mc-mirror did not succeed"
+  kc wait --for=jsonpath='{.status.phase}'=Succeeded pod/mc-mirror --timeout=120s \
+    || die "mc-mirror did not reach Succeeded — inspect: kubectl -n $NS logs mc-mirror"
 
   # INTEGRITY GATE: source and target object counts (parsed from the mirror pod's own output) must match.
   local srcn tgtn
