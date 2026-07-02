@@ -184,7 +184,7 @@ YAML
   kc wait --for=condition=Ready pod/source-pg --timeout=180s
   log "source baseline:"
   kc exec source-pg -- psql -U postgres -d postgres -c \
-    "select (select version_num from alembic_version) alembic, (select count(*) from information_schema.tables where table_schema='public') tables;"
+    "select (select version_num from alembic_version) as alembic, (select count(*) from information_schema.tables where table_schema='public') as tbls;"
 
   log "pg_dump -> $DUMP"
   kc exec source-pg -- pg_dump -Fc -U postgres -d postgres > "$DUMP"
@@ -332,7 +332,7 @@ verify(){
   log "VERIFY (post-migration; note: table count + alembic CHANGE by design after migrate-forward;"
   log "        row counts of preserved data like files must match the source baseline)"
   kc exec ${REL}-postgresql-0 -- psql -U postgres -d postgres -c \
-    "select (select count(*) from files) files, (select version_num from alembic_version) alembic, (select count(*) from information_schema.tables where table_schema='public') tables;"
+    "select (select count(*) from files) as files, (select version_num from alembic_version) as alembic, (select count(*) from information_schema.tables where table_schema='public') as tbls;"
   kc get pods
   echo "  S3 objects in target bucket:" >&2
   log "Manual checks: log in at https://${FRONTEND_HOST}, open a migrated document (PG meta + S3 blob), run a chat."
