@@ -34,10 +34,11 @@ SRC_PG_IMAGE="${SRC_PG_IMAGE:-docker.io/pgvector/pgvector:pg13}"
 SRC_S3_IMAGE="${SRC_S3_IMAGE:-rustfs/rustfs:1.0.0-alpha.81}"   # match source on-disk format
 MC_IMAGE="${MC_IMAGE:-minio/mc}"
 
-# --- derived paths on the box ------------------------------------------------
-OLD_ENV="/mnt/old-home/ecogpt/intric/${PROJECT}/.env"
-OLD_PG="/mnt/inspect/docker/volumes/${PROJECT}_postgres_data/_data"
-OLD_S3="/mnt/inspect/docker/volumes/${PROJECT}_s3_data/_data"
+# --- derived paths on the box (overridable for non-standard layouts, e.g. the top-level
+#     "ecogpt"/intric instance whose .env is at the tree root and volumes are prefixed intric_) ---
+OLD_ENV="${OLD_ENV:-/mnt/old-home/ecogpt/intric/${PROJECT}/.env}"
+OLD_PG="${OLD_PG:-/mnt/inspect/docker/volumes/${PROJECT}_postgres_data/_data}"
+OLD_S3="${OLD_S3:-/mnt/inspect/docker/volumes/${PROJECT}_s3_data/_data}"
 WORK_PG="/mnt/sandisk/${PROJECT}-pgdata"
 WORK_S3="/mnt/sandisk/${PROJECT}-s3data"
 DUMP="/mnt/sandisk/${PROJECT}.dump"
