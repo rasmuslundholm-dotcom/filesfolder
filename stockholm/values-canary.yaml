@@ -34,6 +34,18 @@ intricBackendApiServer:
     - name: S3_BUCKET_NAME
       value: "trafikkontoret"
 
+# Frontend runs Node 24; undici/fetch only uses HTTP(S)_PROXY when NODE_USE_ENV_PROXY=1.
+# Without it, SSR calls to login.intric.ai time out -> 500 on the login page.
+# ORIGIN: TLS is terminated at the upstream corporate LB (Traefik sees HTTP), so SvelteKit's
+# forwarded-proto comes through as http and it builds an http:// redirect_uri that Zitadel rejects.
+# Setting ORIGIN to the public https URL makes SvelteKit use it directly -> correct redirect_uri.
+intricFrontendApp:
+  extraEnv:
+    - name: NODE_USE_ENV_PROXY
+      value: "1"
+    - name: ORIGIN
+      value: "https://tkgpt.stockholm.se"
+
 postgresql:
   enabled: true
   auth:
