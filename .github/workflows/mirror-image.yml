@@ -1,0 +1,28 @@
+name: mirror-image
+on:
+  workflow_dispatch:
+    inputs:
+      src:
+        description: "Source image (e.g. nvcr.io/nvidia/k8s-device-plugin:v0.19.3)"
+        required: true
+      dest_tag:
+        description: "Destination tag under ghcr.io/<owner>/<repo> (e.g. k8s-device-plugin-v0.19.3)"
+        required: true
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Pull → retag → push
+        run: |
+          set -euo pipefail
+          SRC='${{ inputs.src }}'
+          DEST="ghcr.io/${{ github.repository }}:${{ inputs.dest_tag }}"
+          docker pull "$SRC"
+          docker tag "$SRC" "$DEST"
+          docker push "$DEST"
+          echo "Mirrored $SRC -> $DEST"
